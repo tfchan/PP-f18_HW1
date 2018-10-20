@@ -1,26 +1,60 @@
 #include <iostream>
 #include <cstdlib>
 #include <ctime>
+#include <pthread.h>
 using namespace std;
 
-const unsigned int NUMBER_OF_TOSS = 10000000;
-
-double monteCarloEstimation(unsigned int numberOfToss) {
-	unsigned int numberInCircle = 0;
+void* performToss(void* arg) {
+	unsigned long long *numberInCircle = new unsigned long long(0); // Allocate memory to store result, so as to return by thread status
+	unsigned long long numberOfToss = *((unsigned long long*)arg);
 	double x, y;
-	for (unsigned int toss = 0; toss < numberOfToss; toss++) {
-		x = (double)rand() / RAND_MAX;
-		y = (double)rand() / RAND_MAX;
+	unsigned int seed = time(NULL); // Set seed for rand_r
+	// Begin to toss
+	for (unsigned long long toss = 0; toss < numberOfToss; toss++) {
+		// Random a double between 0 and 1, use rand_r for multi-thread purpose
+		x = (double)rand_r(&seed) / RAND_MAX;
+		y = (double)rand_r(&seed) / RAND_MAX;
+		// Check if the point locate within the circle
 		if (x * x + y * y <= 1) {
-			numberInCircle++;
+			(*numberInCircle)++;
 		}
 	}
+	// Return result as exit status
+	return (void*)numberInCircle;
+}
+
+double monteCarloEstimation(unsigned int numberOfThread, unsigned long long numberOfToss) {
+	pthread_t tid[numberOfThread];
+	unsigned long long tossPerThread = numberOfToss / numberOfThread;
+	// Create thread
+	for (unsigned int i = 0; i < numberOfThread; i++) {
+		pthread_create(&tid[i], NULL, performToss, (void*)&tossPerThread);
+	}
+	unsigned long long *ret;
+	unsigned long long numberInCircle = 0;
+	// Join thread and get result from return status
+	for (unsigned int i = 0; i < numberOfThread; i++) {
+		pthread_join(tid[i], (void**)&ret);
+		numberInCircle += *ret;
+		delete ret; // Delete memory that is allocated in thread
+	}
+	// Calculte pi
 	return (double)4 * numberInCircle / numberOfToss;
 }
 
 int main(int argc, char *argv[]) {
-	srand(time(NULL));
-	double pi = monteCarloEstimation(NUMBER_OF_TOSS);
+	unsigned int numberOfThread;
+	unsigned long long numberOfToss;
+	// Extract argument
+	if (argc != 3 || atoi(argv[1]) <= 0 || atoll(argv[2]) <= 0) {
+		cout << "Usage: " << argv[0] << " [Number of thread] [Number of toss]" << endl;
+		return 1;
+	} else {
+		numberOfThread = atoi(argv[1]);
+		numberOfToss = atoll(argv[2]);
+	}
+	// Do estimation
+	double pi = monteCarloEstimation(numberOfThread, numberOfToss);
 	cout << pi << endl;
 	return 0;
 }
