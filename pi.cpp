@@ -26,9 +26,13 @@ void* performToss(void* arg) {
 double monteCarloEstimation(unsigned int numberOfThread, unsigned long long numberOfToss) {
 	pthread_t tid[numberOfThread];
 	unsigned long long tossPerThread = numberOfToss / numberOfThread;
+	unsigned long long tossAtLastThread = numberOfToss - tossPerThread * (numberOfThread - 1);
 	// Create thread
 	for (unsigned int i = 0; i < numberOfThread; i++) {
-		pthread_create(&tid[i], NULL, performToss, (void*)&tossPerThread);
+		if (i < numberOfThread - 1)
+			pthread_create(&tid[i], NULL, performToss, (void*)&tossPerThread);
+		else
+			pthread_create(&tid[i], NULL, performToss, (void*)&tossAtLastThread);
 	}
 	unsigned long long *ret;
 	unsigned long long numberInCircle = 0;
